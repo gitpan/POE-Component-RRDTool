@@ -27,3 +27,11 @@ Revision history for Perl extension PoCo-RRDTool.
         - rrd_status event can be overriden w/ the StatusEvent parameter
         - now using the two argument form of Test::More::ok() always
         - added more test cases 
+
+0.16
+	- removed Exporter and Data::Dumper
+	- fixed a bug with rrd_error (now using $_[ARG0] instead of $ARG0)
+	- Makefile.PL now searches for the latest rrdtool installed
+	- Makefile.PL now also prompts for an alternate location
+	- Makefile.PL sets the default rrdtool binary used by RRDTool.pm
+	- skipping xport tests if rrdtool is less than version 1.0.38

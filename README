@@ -1,5 +1,6 @@
+
 NAME
-    PoCo::RRDTool - POE interface to Tobias Oetiker's RRDTool
+    POE::Component::RRDTool - POE interface to Tobias Oetiker's RRDTool
 
 SYNOPSIS
       use POE qw( Component::RRDTool );
@@ -61,14 +62,15 @@ DESCRIPTION
 METHODS
     new - creates a POE RRDTool component
     new() is the constructor for POE::Component::RRDTool. The constructor is
-    PoCo::RRDTool's only public method. It has two optional named parameters
-    alias and rrdtool.
+    POE::Component::RRDTool's only public method. It has two optional named
+    parameters alias and rrdtool.
 
-    The alias parameter is the alias of the session that the PoCo::RRDTool
-    instance will send events to as callbacks. It defaults to component. It
-    is important to understand that an RRDTool instance ALWAYS uses the
-    rrdtool alias to reference itself. Events are posted to the rrdtool
-    alias and callbacks are posted to the alias set via the constructor.
+    The alias parameter is the alias of the session that the
+    POE::Component::RRDTool instance will send events to as callbacks. It
+    defaults to component. It is important to understand that an RRDTool
+    instance ALWAYS uses the rrdtool alias to reference itself. Events are
+    posted to the rrdtool alias and callbacks are posted to the alias set
+    via the constructor.
 
     The rrdtool parameter is the name of the RRDTool command line utility.
     It defaults to /usr/local/bin/rrdtool.
@@ -83,13 +85,14 @@ METHODS
         );
 
 EVENTS
-    PoCo::RRDTool events take the same parameters as their rrdtool
+    POE::Component::RRDTool events take the same parameters as their rrdtool
     counterpart. Use the RRDTool manual as a reference for rrdtool command
     parameters.
 
     The following events can be posted to an RRDtool component.
 
     create - create a round robin database
+
             my @create_args = qw(
                 test.rrd
                 --start now
@@ -101,9 +104,11 @@ EVENTS
             $_[KERNEL]->post( qw( rrdtool create ), @create_args);
 
     update - update a round robin database
+
             $_[KERNEL]->post( qw( rrdtool update test.rrd N:1 ) );
 
     fetch - fetch data from a RRD
+
             my $callback = 'rrd_fetch_handler';
 
             my @fetch_args = qw( 
@@ -115,10 +120,11 @@ EVENTS
             $_[KERNEL]->post( qw( rrdtool fetch ), $callback, @fetch_args );
 
     graph - generate a graph image from RRDs
+
             my $callback = 'rrd_graph_handler';
 
             my @graph_args = (
-                '-',
+                'graph.png',
                 '--start', -86400,
                 '--imgformat', 'PNG',
                 'DEF:x=test.rrd:X:MAX',
@@ -136,19 +142,18 @@ EVENTS
 
                 printf("PRINT output: %s\n", join('\n', @$graph->{output}) if @$graph;
 
-                print "creating image example.png\n";
-                open IMAGE, "> example.png" or die $!;
-                binmode(1);
-                print IMAGE $graph->{image};
-                close IMAGE;
+                print "graph.png was created" if -e "graph.png";
+                warn "no image was created" unless -e "graph.png";
             }
 
     info - get information about a RRD
+
             my $callback = 'rrd_info_handler';
 
             $_[KERNEL]->post( qw( rrdtool info ), $callback, 'test.rrd' );
 
     xport - generate xml reports from RRDs
+
             my $callback = 'rrd_xport_handler';
 
             my @xport_args = (
@@ -161,11 +166,13 @@ EVENTS
             $_[KERNEL]->post( qw( rrdtool xport ), $callback, @xport_args );
 
     dump - dump a RRD in XML format
+
             my $callback = 'rrd_dump_handler';
 
             $_[KERNEL]->post( qw( rrdtool dump ), $callback, 'test.rrd' );
 
     stop - stop an RRDTool component
+
             $_[KERNEL]->post( qw( rrdtool stop ) );
 
 CALLBACKS
@@ -177,7 +184,7 @@ CALLBACKS
     rrd_status - notification of rrdtool runtimes
     Returns the user, system, and real time of the rrdtool process in ARG0,
     ARG1, and ARG2 respectively. This event name can be overriden by using
-    the StatusEvent parameter to PoCo::RRDTool->new();
+    the StatusEvent parameter to POE::Component::RRDTool->new();
 
         POE::Session->create(
             inline_states => {
@@ -228,6 +235,12 @@ SEE ALSO
 
     The RRDTool Manual
     http://people.ee.ethz.ch/~oetiker/webtools/rrdtool/manual/index.html
+
+TROUBLESHOOTING
+    The rrdtool command line utility does not support the xport subcommand
+    until version 1.0.38. If you try to use the xport event using an older
+    version of rrdtool you will receive an rrdtool usage message as an
+    rrd_error callback.
 
 BUGS
     The rrdtool command line utility is being controlled by POE::Wheel::Run.

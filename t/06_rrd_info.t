@@ -21,7 +21,6 @@ my @info_args = qw( test.rrd );
 my $alias = 'controller';
 POE::Component::RRDTool->new(
     -alias   => $alias,
-    -rrdtool => '/usr/local/bin/rrdtool',
 );
 
 POE::Session->create(

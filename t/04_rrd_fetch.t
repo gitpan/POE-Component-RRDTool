@@ -21,7 +21,6 @@ my @fetch_args = qw( test.rrd MAX --start -1s );
 my $alias = 'controller';
 POE::Component::RRDTool->new(
     -alias   => $alias,
-    -rrdtool => '/usr/local/bin/rrdtool',
 );
 
 POE::Session->create(

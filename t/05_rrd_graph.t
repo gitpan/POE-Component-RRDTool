@@ -16,8 +16,10 @@ use Test::More tests => 6;
 
 my $ok = 0;
 
+my $image_file = 'test.png';
+
 my @graph_args = (
-    '-',
+    $image_file,
     '--start', -86400,
     '--imgformat', 'PNG',
     'DEF:x=test.rrd:X:MAX',
@@ -29,7 +31,6 @@ my @graph_args = (
 my $alias = 'controller';
 POE::Component::RRDTool->new(
     -alias   => $alias,
-    -rrdtool => '/usr/local/bin/rrdtool',
 );
 
 POE::Session->create(
@@ -40,7 +41,7 @@ POE::Session->create(
             $_[KERNEL]->post( 'rrdtool', 'stop' );
         },
         _stop => sub {
-            unlink('test.png') if -e 'test.png';
+            unlink($image_file) if -e $image_file;
         },
         'get_value' => sub {
             my $graph = $_[ARG0];
@@ -51,13 +52,8 @@ POE::Session->create(
 
             isa_ok($graph->{output}, 'ARRAY');
             is($graph->{output}->[0], 'NaN');
-            ok($graph->{image}, 'image exists');
 
-            # write image to disk
-            open(IMG, "> test.png") or die "can't write test.png: $!\n";
-            binmode(IMG);
-            print IMG $graph->{image};
-            close(IMG);
+            ok(-e $image_file, 'image exists');
         },
         'rrd_error' => sub { 
             $ok = 0; 

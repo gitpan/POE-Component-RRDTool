@@ -1,19 +1,12 @@
 package POE::Component::RRDTool;
-# $Id: RRDTool.pm,v 1.17 2003/09/04 16:07:52 tcaine Exp $
+# $Id: RRDTool.pm,v 1.23 2003/09/05 22:30:53 tcaine Exp $
 
 use strict;
 
-require Exporter;
+use vars qw/ $VERSION $RRDTOOL_VERSION /;
 
-use vars qw/ @ISA %EXPORT_TAGS @EXPORT_OK @EXPORT $VERSION /;
-
-@ISA = qw( Exporter );
-
-%EXPORT_TAGS = ( 'all' => [ qw() ] );
-@EXPORT_OK   = ( @{ $EXPORT_TAGS{'all'} } );
-@EXPORT      = qw();
-
-$VERSION = '0.15';
+$VERSION = '0.16';
+$RRDTOOL_VERSION = '__RRDTOOL_VERSION__';
 
 # library includes
 use POE::Session;
@@ -22,7 +15,6 @@ use POE::Driver::SysRW;
 use POE::Filter::Line;
 use POE::Filter::Stream;
 
-use Data::Dumper;
 use File::Basename qw( dirname );
 use POSIX qw( :sys_wait_h );
 
@@ -99,7 +91,7 @@ sub rrd_output_handler {
 }
 
 sub rrd_error {
-    print STDERR "\nRRD Error: " . Dumper \@_[ARG0..$#_] . "\n";
+    print STDERR "\nRRD Error: $_[ARG0]\n";
 }
 
 sub rrd_output {
@@ -153,11 +145,11 @@ sub rrd_output {
             }
             elsif($command_output eq 'graph') {
                 my @GRAPH_output = ();
-                my @output = split/\n/, $output;
+                my @output = split /\n/, $output;
 
                 #  get rrdtool graph's GRAPH output if any
                 foreach (reverse @output) {
-                    if (/^(?:NaN|[-+.\d])$/) {
+                    if (/^(?:NaN|[\-\+\.\d]+)$/) {
                         push @GRAPH_output, $_;
                     }
                     else {
@@ -171,7 +163,6 @@ sub rrd_output {
                 my %graph_results = (
                     xsize  => $x,
                     ysize  => $y,
-                    image  => join('', @output[ 0 .. ($#output - @GRAPH_output) ]),
                     output => [ @GRAPH_output ],
                 );
                 $response = \%graph_results;
@@ -213,7 +204,7 @@ sub new {
     my %param = @_;
     my %args  = (
         alias   => 'rrdtool',
-        rrdtool => '/usr/local/bin/rrdtool',
+        rrdtool => '__DEFAULT_RRDTOOL__',
     );
 
     foreach (keys %param) {
@@ -383,7 +374,7 @@ The following events can be posted to an RRDtool component.
     my $callback = 'rrd_graph_handler';
 
     my @graph_args = (
-        '-',
+        'graph.png',
         '--start', -86400,
         '--imgformat', 'PNG',
         'DEF:x=test.rrd:X:MAX',
@@ -401,11 +392,8 @@ The following events can be posted to an RRDtool component.
 
         printf("PRINT output: %s\n", join('\n', @$graph->{output}) if @$graph;
 
-        print "creating image example.png\n";
-        open IMAGE, "> example.png" or die $!;
-        binmode(1);
-        print IMAGE $graph->{image};
-        close IMAGE;
+        print "graph.png was created" if -e "graph.png";
+        warn "no image was created" unless -e "graph.png";
     }
 
 =back
@@ -514,6 +502,10 @@ http://people.ee.ethz.ch/~oetiker/webtools/rrdtool/index.html
 
 The RRDTool Manual
 http://people.ee.ethz.ch/~oetiker/webtools/rrdtool/manual/index.html
+
+=head1 TROUBLESHOOTING
+
+The rrdtool command line utility does not support the xport subcommand until version 1.0.38.  If you try to use the xport event using an older version of rrdtool you will receive an rrdtool usage message as an rrd_error callback.
 
 =head1 BUGS
 

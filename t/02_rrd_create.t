@@ -24,7 +24,6 @@ my @create_args = qw(
 my $alias = 'controller';
 POE::Component::RRDTool->new(
     -alias       => $alias,
-    -rrdtool     => '/usr/local/bin/rrdtool',
     -statusevent => 'rrd_status',
 );
 
