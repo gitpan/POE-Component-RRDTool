@@ -1,330 +1,240 @@
+NAME
+
+    PoCo::RRDTool - POE interface to Tobias Oetiker's RRDTool
+
+SYNOPSIS
+
+      use POE qw( Component::RRDTool );
+
+      my $alias = 'controller';
+
+      my @create_args = qw(
+          test.rrd
+          --start now
+          --step 30
+          DS:X:GAUGE:60:0:10
+          RRA:MAX:0.5:1:1
+      );
+
+      # start up the rrdtool component
+      POE::Component::RRDTool->new(  
+          -alias   => $alias,
+          -rrdtool => '/usr/local/bin/rrdtool',
+      );
 
+      POE::Session->create(
+          inline_states => {
+              _start => sub {
+                   # set a session alias so that we can receive events from RRDTool
+                   $_[KERNEL]->alias_set($_[ARG0]);
 
+                   # create a round robin database
+                   $_[KERNEL]->post( 'rrdtool', 'create', @create_args );
 
-User Contributed Perl Documentation                    RRDTool(3)
+                   # stop the rrdtool component
+                   $_[KERNEL]->post( 'rrdtool', 'stop' );
+              },
+              'rrd_error' => sub {
+                  print STDERR "ERROR: " . $_[ARG0] . "\n";
+              }
+          },
+          args => [ $alias ],
+      );
 
+      $poe_kernel->run();
 
+DESCRIPTION
 
-NNNNAAAAMMMMEEEE
-     PoCo::RRDTool - POE interface to Tobias Oetiker's RRDTool
+    RRDtool refers to round robin database tool. Round robin databases have
+    a fixed number of data points in them and contain a pointer to the
+    current element. Since the databases have a fixed number of data points
+    the database size doesn't change after creation. RRDtool allows you to
+    define a set of archives which consolidate the primary data points in
+    higher granularity. RRDtool is specialized for time series data and can
+    be used to create RRD files, update RRDs, retreive data from RRDs, and
+    generate graphs from the databases. This module provides a POE wrapper
+    around the rrdtool command line interface.
 
-SSSSYYYYNNNNOOOOPPPPSSSSIIIISSSS
-       use POE qw( Component::RRDTool );
+METHODS
 
-       my $alias = 'controller';
+    new - creates a POE RRDTool component
+    new() is the constructor for POE::Component::RRDTool. The constructor is
+    PoCo::RRDTool's only public method. It has two optional named parameters
+    alias and rrdtool.
 
-       my @create_args = qw(
-           test.rrd
-           --start now
-           --step 30
-           DS:X:GAUGE:60:0:10
-           RRA:MAX:0.5:1:1
-       );
+    The alias parameter is the alias of the session that the PoCo::RRDTool
+    instance will send events to as callbacks. It defaults to component. It
+    is important to understand that an RRDTool instance ALWAYS uses the
+    rrdtool alias to reference itself. Events are posted to the rrdtool
+    alias and callbacks are posted to the alias set via the constructor.
 
-       # start up the rrdtool component
-       POE::Component::RRDTool->new(
-           -alias   => $alias,
-           -rrdtool => '/usr/local/bin/rrdtool',
-       );
+    The rrdtool parameter is the name of the RRDTool command line utility.
+    It defaults to /usr/local/bin/rrdtool.
 
-       POE::Session->create(
-           inline_states => {
-               _start => sub {
-                    # set a session alias so that we can receive events from RRDTool
-                    $_[KERNEL]->alias_set($_[ARG0]);
+    In the calling convention below the "[]"s indicate optional parameters.
 
-                    # create a round robin database
-                    $_[KERNEL]->post( 'rrdtool', 'create', @create_args );
+        POE::Component::RRDTool->new(
+            [-alias   => 'controller'],
+            [-rrdtool => '/usr/local/bin/rrdtool'],
+        );
 
-                    # stop the rrdtool component
-                    $_[KERNEL]->post( 'rrdtool', 'stop' );
-               },
-               'rrd_error' => sub {
-                   print STDERR "ERROR: " . $_[ARG0] . "\n";
-               }
-           },
-           args => [ $alias ],
-       );
+EVENTS
 
-       $poe_kernel->run();
+    RRDTool events take the same parameters as their rrdtool counterpart.
+    Use the RRDTool manual as a reference for rrdtool command parameters.
 
+    The following events can be posted to an RRDtool component.
 
-DDDDEEEESSSSCCCCRRRRIIIIPPPPTTTTIIIIOOOONNNN
-     RRDtool refers to round robin database tool.  Round robin
-     databases have a fixed number of data points in them and
-     contain a pointer to the current element.  Since the
-     databases have a fixed number of data points the database
-     size doesn't change after creation.  RRDtool allows you to
-     define a set of archives which consolidate the primary data
-     points in higher granularity.  RRDtool is specialized for
+    create
+      create a round robin database
 
+            my @create_args = qw(
+                test.rrd
+                --start now
+                --step 30
+                DS:X:GAUGE:60:0:10
+                RRA:MAX:0.5:1:1
+            );
+    
+            $_[KERNEL]->post( qw( rrdtool create ), @create_args);
 
+    update
+      update a round robin database
 
-perl v5.6.0          Last change: 2002-06-30                    1
+            $_[KERNEL]->post( qw( rrdtool update test.rrd N:1 ) );
 
+    fetch
+      fetch data from a RRD
 
+            my $callback = 'rrd_fetch_handler';
 
+            my @fetch_args = qw( 
+                test.rrd 
+                MAX
+                --start -1s
+            );
 
+            $_[KERNEL]->post( qw( rrdtool fetch ), $callback, @fetch_args );
 
+    graph
+      generate a graph image from RRDs
 
-User Contributed Perl Documentation                    RRDTool(3)
+            my $callback = 'rrd_graph_handler';
 
-
-
-     time series data and can be used to create RRD files, update
-     RRDs, retreive data from RRDs, and generate graphs from the
-     databases.  This module provides a POE wrapper around the
-     rrdtool command line interface.
-
-MMMMEEEETTTTHHHHOOOODDDDSSSS
-     nnnneeeewwww - creates a POE RRDTool component
-          _n_e_w() is the constructor for POE::Component::RRDTool.
-          The constructor is PoCo::RRDTool's only public method.
-          It has two optional named parameters aaaalllliiiiaaaassss and rrrrrrrrddddttttoooooooollll.
-
-     The aaaalllliiiiaaaassss parameter is the alias of the session that the
-     PoCo::RRDTool instance will send events to as callbacks.  It
-     defaults to ccccoooommmmppppoooonnnneeeennnntttt.  It is important to understand that
-     an RRDTool instance ALWAYS uses the rrrrrrrrddddttttoooooooollll alias to
-     reference itself.  Events are posted to the rrdtool alias
-     and callbacks are posted to the alias set via the
-     constructor.
-
-     The rrrrrrrrddddttttoooooooollll parameter is the name of the RRDTool command
-     line utility.  It defaults to /usr/local/bin/rrdtool.
-
-     In the calling convention below the "[]"s indicate optional
-     parameters.
-
-         POE::Component::RRDTool->new(
-             [-alias   => 'controller'],
-             [-rrdtool => '/usr/local/bin/rrdtool'],
-         );
-
-
-EEEEVVVVEEEENNNNTTTTSSSS
-     RRDTool events take the same parameters as their rrdtool
-     counterpart.  Use the RRDTool manual as a reference for
-     rrdtool command parameters.
-
-     The following events can be posted to an RRDtool component.
-
-     ccccrrrreeeeaaaatttteeee
-            create a round robin database
-
-              my @create_args = qw(
-                  test.rrd
-                  --start now
-                  --step 30
-                  DS:X:GAUGE:60:0:10
-                  RRA:MAX:0.5:1:1
-              );
-
-              $_[KERNEL]->post( qw( rrdtool create ), @create_args);
-
-
-
-
-
-perl v5.6.0          Last change: 2002-06-30                    2
-
-
-
-
-
-
-User Contributed Perl Documentation                    RRDTool(3)
-
-
-
-     uuuuppppddddaaaatttteeee
-            update a round robin database
-
-              $_[KERNEL]->post( qw( rrdtool update test.rrd N:1 ) );
-
-
-     ffffeeeettttcccchhhh
-            fetch data from a RRD
-
-              my $callback = 'rrd_fetch_handler';
-
-              my @fetch_args = qw(
-                  test.rrd
-                  MAX
-                  --start -1s
-              );
-
-              $_[KERNEL]->post( qw( rrdtool fetch ), $callback, @fetch_args );
-
-
-     ggggrrrraaaapppphhhh
-            generate a graph image from RRDs
-
-              my $callback = 'rrd_graph_handler';
-
-              my @graph_args = (
-                  '-',
-                  '--start', -86400,
-                  '--imgformat', 'PNG',
-                  'DEF:x=test.rrd:X:MAX',
-                  'AREA:x#00FF00:test_data',
-              );
-
-              $_[KERNEL]->post( qw( rrdtool udpate ), $callback, @graph_args );
-
-
-     iiiinnnnffffoooo
-            get information about a RRD
-
-              my $callback = 'rrd_info_handler';
-
-              $_[KERNEL]->post( qw( rrdtool info ), $callback, 'test.rrd' );
-
-
-     xxxxppppoooorrrrtttt
-            generate xml reports from RRDs
-
-              my $callback = 'rrd_xport_handler';
-
-
-
-
-
-
-
-perl v5.6.0          Last change: 2002-06-30                    3
-
-
-
-
-
-
-User Contributed Perl Documentation                    RRDTool(3)
-
-
-
-              my @xport_args = (
-                '--start', -300,
-                '--step', 300,
+            my @graph_args = (
+                '-',
+                '--start', -86400,
+                '--imgformat', 'PNG',
                 'DEF:x=test.rrd:X:MAX',
-                'XPORT:x:foobar',
-              );
+                'AREA:x#00FF00:test_data',
+            );
 
-              $_[KERNEL]->post( qw( rrdtool xport ), $callback, @xport_args );
+            $_[KERNEL]->post( qw( rrdtool udpate ), $callback, @graph_args );
 
+    info
+      get information about a RRD
 
-     dddduuuummmmpppp
-            dump a RRD in XML format
+            my $callback = 'rrd_info_handler';
 
-              my $callback = 'rrd_dump_handler';
+            $_[KERNEL]->post( qw( rrdtool info ), $callback, 'test.rrd' );
 
-              $_[KERNEL]->post( qw( rrdtool dump ), $callback, 'test.rrd' );
+    xport
+      generate xml reports from RRDs
 
+            my $callback = 'rrd_xport_handler';
 
-     ssssttttoooopppp
-            stop an RRDTool component
+            my @xport_args = (
+              '--start', -300,
+              '--step', 300,
+              'DEF:x=test.rrd:X:MAX',
+              'XPORT:x:foobar',
+            );
 
-              $_[KERNEL]->post( qw( rrdtool stop ) );
+            $_[KERNEL]->post( qw( rrdtool xport ), $callback, @xport_args );
 
+    dump
+      dump a RRD in XML format
 
-CCCCAAAALLLLLLLLBBBBAAAACCCCKKKKSSSS
-     The callbacks listed below are sent by the RRDTool component
-     to the session alias passed to it's constructor.  You can
-     provide event handlers for them in the controlling session's
-     constructor.  However it is not required to handle any of
-     the callbacks.
+            my $callback = 'rrd_dump_handler';
 
-     rrrrrrrrdddd____ssssttttaaaattttuuuussss - notification of rrdtool runtimes
-          Returns the user, system, and real time of the rrdtool
-          process in ARG0, ARG1, and ARG2 respectively.
+            $_[KERNEL]->post( qw( rrdtool dump ), $callback, 'test.rrd' );
 
-         POE::Session->create(
-             inline_states => {
-                 'rrd_status' => sub {
-                     my ($user, $system, $real) = @_[ARG0 .. ARG2];
-                     print "u: $user\ts: $system\tr: $real\n";
-                 },
-                 ....,
-             }
-         );
+    stop
+      stop an RRDTool component
 
+            $_[KERNEL]->post( qw( rrdtool stop ) );
 
-     rrrrrrrrdddd____eeeerrrrrrrroooorrrr - rrdtool error notification
-          Returns error messages returned from rrdtool in ARG0.
+CALLBACKS
 
+    The callbacks listed below are sent by the RRDTool component to the
+    session alias passed to it's constructor. You can provide event handlers
+    for them in the controlling session's constructor. However it is not
+    required to handle any of the callbacks.
 
+    rrd_status - notification of rrdtool runtimes
+    Returns the user, system, and real time of the rrdtool process in ARG0,
+    ARG1, and ARG2 respectively.
 
+        POE::Session->create(
+            inline_states => {
+                'rrd_status' => sub {
+                    my ($user, $system, $real) = @_[ARG0 .. ARG2];
+                    print "u: $user\ts: $system\tr: $real\n";
+                },
+                ....,
+            }
+        );
 
+    rrd_error - rrdtool error notification
+    Returns error messages returned from rrdtool in ARG0.
 
+        POE::Session->create(
+            inline_states => {
+                'rrd_error' => sub {
+                    my $error = $_[ARG0];
+                    print "Error: $error\n";
+                },
+                ....,
+            }
+        );
 
+    rrd_stopped - rrdtool process stopped
+    This callback provides a hook to do something when the rrdtool process
+    is stopped.
 
-perl v5.6.0          Last change: 2002-06-30                    4
+        POE::Session->create(
+            inline_states => {
+                'rrd_stopped' => sub {
+                    print "rrdtool stopped\n";
+                },
+                ....,
+            }
+        );
 
+AUTHOR
 
+    Todd Caine <todd@pobox.com>
 
+BUGS
 
+    The graph event doesn't support rrdtool's print method.
 
+    There's probably more so send me an email and let me know how it worked
+    or didn't work for you. I'd be interested to hear what kind of programs
+    this component gets used in.
 
-User Contributed Perl Documentation                    RRDTool(3)
+SEE ALSO
 
+    An RRDTool Tutorial
 
+    http://people.ee.ethz.ch/~oetiker/webtools/rrdtool/tutorial/rrdtutorial.
+    html
 
-         POE::Session->create(
-             inline_states => {
-                 'rrd_error' => sub {
-                     my $error = $_[ARG0];
-                     print "Error: $error\n";
-                 },
-                 ....,
-             }
-         );
+    The Main RRDTool Website
 
+    http://people.ee.ethz.ch/~oetiker/webtools/rrdtool/index.html
 
-     rrrrrrrrdddd____ssssttttooooppppppppeeeedddd - rrdtool process stopped
-          This callback provides a hook to do something when the
-          rrdtool process is stopped.
+    The RRDTool Manual
 
-         POE::Session->create(
-             inline_states => {
-                 'rrd_stopped' => sub {
-                     print "rrdtool stopped\n";
-                 },
-                 ....,
-             }
-         );
-
-
-AAAAUUUUTTTTHHHHOOOORRRR
-     Todd Caine  <todd@pobox.com>
-
-BBBBUUUUGGGGSSSS
-     The graph event doesn't support rrdtool's print method.
-
-     There's probably more so send me an email and let me know
-     how it worked or didn't work for you.  I'd be interested to
-     hear what kind of programs this component gets used in.
-
-SSSSEEEEEEEE AAAALLLLSSSSOOOO
-     An RRDTool Tutorial
-     http://people.ee.ethz.ch/~oetiker/webtools/rrdtool/tutorial/rrdtutorial.html
-
-     The Main RRDTool Website
-     http://people.ee.ethz.ch/~oetiker/webtools/rrdtool/index.html
-
-     The RRDTool Manual
-     http://people.ee.ethz.ch/~oetiker/webtools/rrdtool/manual/index.html
-
-
-
-
-
-
-
-
-
-
-
-perl v5.6.0          Last change: 2002-06-30                    5
-
-
+    http://people.ee.ethz.ch/~oetiker/webtools/rrdtool/manual/index.html
 

@@ -11,7 +11,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw() ] );
 our @EXPORT_OK   = ( @{ $EXPORT_TAGS{'all'} } );
 our @EXPORT      = qw();
 
-our $VERSION = '0.11';
+our $VERSION = '0.12';
 
 # library includes
 use POE::Session;
@@ -46,7 +46,7 @@ sub start_rrdtool {
          StdinEvent  => 'rrd_stdin',
          StdoutEvent => 'rrd_stdout',
          StderrEvent => 'rrd_stderr',
-         Driver       => POE::Driver::SysRW->new(BlockSize => $block_size),
+         StdioDriver  => POE::Driver::SysRW->new(BlockSize => $block_size),
          StdinFilter  => POE::Filter::Line->new(),
          StdoutFilter => POE::Filter::Stream->new(),
          StderrFilter => POE::Filter::Line->new(),

@@ -5,6 +5,6 @@ WriteMakefile(
     'NAME'         => 'POE::Component::RRDTool',
     'VERSION_FROM' => 'RRDTool.pm',
     'PREREQ_PM'    => {
-        'POE' => '0.22',
+        'POE' => '0.2101',
     },
 );
