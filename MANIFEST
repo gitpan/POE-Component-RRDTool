@@ -1,0 +1,14 @@
+Changes
+MANIFEST
+MANIFEST.SKIP
+Makefile.PL
+README
+RRDTool.pm
+t/01_rrd_run.t
+t/02_rrd_create.t
+t/03_rrd_update.t
+t/04_rrd_fetch.t
+t/05_rrd_graph.t
+t/06_rrd_info.t
+t/07_rrd_xport.t
+t/08_rrd_dump.t

@@ -1,0 +1,10 @@
+Revision history for Perl extension PoCo-RRDTool.
+
+0.01  Sun Jun 23 12:59:44 2002
+	- original version; created by h2xs 1.20 with options
+		-AX -n PoCo-RRDTool
+
+0.10  Sun Jun 30 22:55:14 2002
+        - added all of the rrdtool commands
+        - this is the first public release
+
