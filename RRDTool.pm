@@ -1,5 +1,5 @@
 package POE::Component::RRDTool;
-# $Id: RRDTool.pm,v 1.14 2002/07/29 21:08:03 tcaine Exp $
+# $Id: RRDTool.pm,v 1.17 2003/09/04 16:07:52 tcaine Exp $
 
 use strict;
 
@@ -13,7 +13,7 @@ use vars qw/ @ISA %EXPORT_TAGS @EXPORT_OK @EXPORT $VERSION /;
 @EXPORT_OK   = ( @{ $EXPORT_TAGS{'all'} } );
 @EXPORT      = qw();
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 # library includes
 use POE::Session;
@@ -39,6 +39,8 @@ sub start_rrdtool {
 
     $kernel->alias_set('rrdtool');
     $heap->{alias} = $args{alias};
+    $heap->{error_event} = $args{'error_event'} || 'rrd_error',
+    $heap->{status_event} = $args{'status_event'} || 'rrd_status',
     $heap->{state} = IDLE;
 
     my $program = [ $args{rrdtool}, '-' ];
@@ -105,10 +107,10 @@ sub rrd_output {
     my $alias = $heap->{alias};
     #  figure out what RRDTool sent to STDOUT
     if ($output =~ /Usage:/) {
-        $kernel->post($alias, 'rrd_error', $output);
+        $kernel->post($alias, $heap->{'error_event'}, $output);
     }
     elsif ($output =~ /ERROR:\s(.*)/) {
-        $kernel->post($alias, 'rrd_error', $1);
+        $kernel->post($alias, $heap->{'error_event'}, $1);
     }
     else {
         my $output = $output;
@@ -200,7 +202,7 @@ sub rrd_output {
 
     #  update rrdtool run times
     if ($output =~ /OK u:(\d+\.\d\d) s:(\d+\.\d\d) r:(\d+\.\d\d)/) {
-        $kernel->post($alias, 'rrd_status', $1, $2, $3);
+        $kernel->post($alias, $heap->{'status_event'}, $1, $2, $3);
     }
 
     $heap->{state} = IDLE;
@@ -215,8 +217,10 @@ sub new {
     );
 
     foreach (keys %param) {
-        if    (/^-?alias$/i)   { $args{alias}   = $param{$_} }
-        elsif (/^-?rrdtool$/i) { $args{rrdtool} = $param{$_} }
+        if    (/^-?alias$/i)      { $args{alias}       = $param{$_} }
+        elsif (/^-?rrdtool$/i)    { $args{rrdtool}     = $param{$_} }
+        elsif (/^-?errorevent$/i) { $args{error_event} = $param{$_} }
+        elsif (/^-?statusevent$/i){ $args{status_event}= $param{$_} }
     } 
 
     
@@ -254,7 +258,7 @@ __END__
 
 =head1 NAME
 
-PoCo::RRDTool - POE interface to Tobias Oetiker's RRDTool
+POE::Component::RRDTool - POE interface to Tobias Oetiker's RRDTool
 
 =head1 SYNOPSIS
 
@@ -272,8 +276,10 @@ PoCo::RRDTool - POE interface to Tobias Oetiker's RRDTool
 
   # start up the rrdtool component
   POE::Component::RRDTool->new(  
-      -alias   => $alias,
-      -rrdtool => '/usr/local/bin/rrdtool',
+      Alias      => $alias,
+      RRDtool    => '/usr/local/bin/rrdtool',
+      ErrorEvent => 'rrd_error',
+      StatusEvent=> 'rrd_status',
   );
 
   POE::Session->create(
@@ -290,7 +296,11 @@ PoCo::RRDTool - POE interface to Tobias Oetiker's RRDTool
           },
           'rrd_error' => sub {
               print STDERR "ERROR: " . $_[ARG0] . "\n";
-          }
+          },
+          'rrd_status' => sub {
+               my ($user, $system, $real) = @_[ARG0 .. ARG2];
+               print "u: $user\ts: $system\tr: $real\n";
+          },
       },
       args => [ $alias ],
   );
@@ -305,22 +315,24 @@ RRDtool refers to round robin database tool.  Round robin databases have a fixed
 
 =item B<new> - creates a POE RRDTool component
 
-new() is the constructor for POE::Component::RRDTool.  The constructor is PoCo::RRDTool's only public method.  It has two optional named parameters B<alias> and B<rrdtool>.  
+new() is the constructor for POE::Component::RRDTool.  The constructor is POE::Component::RRDTool's only public method.  It has two optional named parameters B<alias> and B<rrdtool>.  
 
-The B<alias> parameter is the alias of the session that the PoCo::RRDTool instance will send events to as callbacks.  It defaults to B<component>.  It is important to understand that an RRDTool instance ALWAYS uses the B<rrdtool> alias to reference itself.  Events are posted to the rrdtool alias and callbacks are posted to the alias set via the constructor.
+The B<alias> parameter is the alias of the session that the POE::Component::RRDTool instance will send events to as callbacks.  It defaults to B<component>.  It is important to understand that an RRDTool instance ALWAYS uses the B<rrdtool> alias to reference itself.  Events are posted to the rrdtool alias and callbacks are posted to the alias set via the constructor.
 
 The B<rrdtool> parameter is the name of the RRDTool command line utility.  It defaults to /usr/local/bin/rrdtool.
 
 In the calling convention below the C<[]>s indicate optional parameters.
 
     POE::Component::RRDTool->new(
-        [-alias   => 'controller'],
-        [-rrdtool => '/usr/local/bin/rrdtool'],
+        [-alias       => 'controller'],
+        [-rrdtool     => '/usr/local/bin/rrdtool'],
+        [-errorevent  => 'error_handler'],
+        [-statusevent => 'status_handler'],
     );
 
 =head1 EVENTS
 
-RRDTool events take the same parameters as their rrdtool counterpart.  Use the RRDTool manual as a reference for rrdtool command parameters.  
+POE::Component::RRDTool events take the same parameters as their rrdtool counterpart.  Use the RRDTool manual as a reference for rrdtool command parameters.  
 
 The following events can be posted to an RRDtool component.  
 
@@ -449,7 +461,7 @@ The callbacks listed below are sent by the RRDTool component to the session alia
 
 =item B<rrd_status> - notification of rrdtool runtimes
 
-Returns the user, system, and real time of the rrdtool process in ARG0, ARG1, and ARG2 respectively.
+Returns the user, system, and real time of the rrdtool process in ARG0, ARG1, and ARG2 respectively.  This event name can be overriden by using the StatusEvent parameter to POE::Component::RRDTool->new();
 
     POE::Session->create(
         inline_states => {
@@ -502,6 +514,12 @@ http://people.ee.ethz.ch/~oetiker/webtools/rrdtool/index.html
 
 The RRDTool Manual
 http://people.ee.ethz.ch/~oetiker/webtools/rrdtool/manual/index.html
+
+=head1 BUGS
+
+The rrdtool command line utility is being controlled by POE::Wheel::Run.  I'm increasing the block size on the POE::Driver::SysRW instance used for the rrdtool output so that each command generates only one event.  This should probably be fixed by using the default block size and a custom filter instead.  
+
+If you notice that more than one event is being generated from a single rrdtool command you may need to increase the blocksize used.
 
 =head1 COPYRIGHT AND LICENSE
 

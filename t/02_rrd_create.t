@@ -7,7 +7,7 @@ use POE;
 use lib qw(../blib/arch ../blib/lib);
 use POE::Component::RRDTool;
 
-use Test::More tests => 1;
+use Test::More tests => 2;
 
 #-------------------------#
 #  Test 2: RRD creation   #
@@ -23,20 +23,26 @@ my @create_args = qw(
 
 my $alias = 'controller';
 POE::Component::RRDTool->new(
-    -alias   => $alias,
-    -rrdtool => '/usr/local/bin/rrdtool',
+    -alias       => $alias,
+    -rrdtool     => '/usr/local/bin/rrdtool',
+    -statusevent => 'rrd_status',
 );
+
+my $status_handled = 0;
 
 POE::Session->create(
     inline_states => {
-        _start => sub { 
+        '_start' => sub { 
              $_[KERNEL]->alias_set($_[ARG0]);
              $_[KERNEL]->post( 'rrdtool', 'create', @create_args );
              $_[KERNEL]->post( 'rrdtool', 'stop' );
         },
         'rrd_error' => sub {
             print STDERR "ERROR: " . $_[ARG0] . "\n";
-        }
+        },
+        'rrd_status'=> sub {
+            $status_handled = 1;
+        },
     },
     args => [ $alias ],
 );
@@ -44,6 +50,8 @@ POE::Session->create(
 $poe_kernel->run();
 
 my $created = -e "./test.rrd";
-ok($created);
+ok($created, 'test.rrd was created');
+
+ok($status_handled, 'status event was handled');
 
 exit 0;

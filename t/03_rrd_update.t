@@ -41,6 +41,6 @@ POE::Session->create(
 
 $poe_kernel->run();
 
-ok($ok);
+ok($ok, 'the update was successful');
 
 exit 0;

@@ -21,3 +21,9 @@ Revision history for Perl extension PoCo-RRDTool.
 	- added better error reporting
 	- added support for rrdtool graph's PRINT function
 	- graph now returns a hash reference instead of a scalar reference
+
+0.15  Tue Sep 24 17:04:58 2002
+        - rrd_error event can be overriden with the ErrorEvent parameter
+        - rrd_status event can be overriden w/ the StatusEvent parameter
+        - now using the two argument form of Test::More::ok() always
+        - added more test cases 

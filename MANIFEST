@@ -12,3 +12,4 @@ t/05_rrd_graph.t
 t/06_rrd_info.t
 t/07_rrd_xport.t
 t/08_rrd_dump.t
+t/09_rrd_error.t

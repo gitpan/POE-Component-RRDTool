@@ -34,6 +34,6 @@ POE::Session->create(
 
 $poe_kernel->run();
 
-ok($loaded);
+ok($loaded, 'the component ran');
 
 exit 0;

@@ -69,7 +69,7 @@ POE::Session->create(
 
 $poe_kernel->run();
 
-ok($ok);
+ok($ok, 'there were no errors');
 
 exit 0;
 

@@ -16,8 +16,10 @@ SYNOPSIS
 
       # start up the rrdtool component
       POE::Component::RRDTool->new(  
-          -alias   => $alias,
-          -rrdtool => '/usr/local/bin/rrdtool',
+          Alias      => $alias,
+          RRDtool    => '/usr/local/bin/rrdtool',
+          ErrorEvent => 'rrd_error',
+          StatusEvent=> 'rrd_status',
       );
 
       POE::Session->create(
@@ -34,7 +36,11 @@ SYNOPSIS
               },
               'rrd_error' => sub {
                   print STDERR "ERROR: " . $_[ARG0] . "\n";
-              }
+              },
+              'rrd_status' => sub {
+                   my ($user, $system, $real) = @_[ARG0 .. ARG2];
+                   print "u: $user\ts: $system\tr: $real\n";
+              },
           },
           args => [ $alias ],
       );
@@ -70,13 +76,16 @@ METHODS
     In the calling convention below the "[]"s indicate optional parameters.
 
         POE::Component::RRDTool->new(
-            [-alias   => 'controller'],
-            [-rrdtool => '/usr/local/bin/rrdtool'],
+            [-alias       => 'controller'],
+            [-rrdtool     => '/usr/local/bin/rrdtool'],
+            [-errorevent  => 'error_handler'],
+            [-statusevent => 'status_handler'],
         );
 
 EVENTS
-    RRDTool events take the same parameters as their rrdtool counterpart.
-    Use the RRDTool manual as a reference for rrdtool command parameters.
+    PoCo::RRDTool events take the same parameters as their rrdtool
+    counterpart. Use the RRDTool manual as a reference for rrdtool command
+    parameters.
 
     The following events can be posted to an RRDtool component.
 
@@ -167,7 +176,8 @@ CALLBACKS
 
     rrd_status - notification of rrdtool runtimes
     Returns the user, system, and real time of the rrdtool process in ARG0,
-    ARG1, and ARG2 respectively.
+    ARG1, and ARG2 respectively. This event name can be overriden by using
+    the StatusEvent parameter to PoCo::RRDTool->new();
 
         POE::Session->create(
             inline_states => {
@@ -218,6 +228,16 @@ SEE ALSO
 
     The RRDTool Manual
     http://people.ee.ethz.ch/~oetiker/webtools/rrdtool/manual/index.html
+
+BUGS
+    The rrdtool command line utility is being controlled by POE::Wheel::Run.
+    I'm increasing the block size on the POE::Driver::SysRW instance used
+    for the rrdtool output so that each command generates only one event.
+    This should probably be fixed by using the default block size and a
+    custom filter instead.
+
+    If you notice that more than one event is being generated from a single
+    rrdtool command you may need to increase the blocksize used.
 
 COPYRIGHT AND LICENSE
     Copyright (c) 2002 Todd Caine. All rights reserved. This program is free
