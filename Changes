@@ -8,6 +8,9 @@ Revision history for Perl extension PoCo-RRDTool.
         - added all of the rrdtool commands
         - this is the first public release
 
-0.12  Mon Jul  1 09:19:59 PDT 2002
+0.12  Mon Jul  1 09:19:59 2002
         - fixed a major bug related to the new Wheel::Run driver interface
         - POE version 0.2101 is the minimum required version now
+
+0.13  Wed Jul 24 08:46:36 2002
+        - removed the use of our() to make things work with older perls

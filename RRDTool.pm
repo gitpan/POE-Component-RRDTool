@@ -1,17 +1,19 @@
 package POE::Component::RRDTool;
-# $Id: RRDTool.pm,v 1.11 2002/07/01 06:09:49 tcaine Exp $
+# $Id: RRDTool.pm,v 1.12 2002/07/01 16:35:21 tcaine Exp $
 
 use strict;
 
 require Exporter;
 
-our @ISA = qw( Exporter );
+use vars qw/ @ISA %EXPORT_TAGS @EXPORT_OK @EXPORT $VERSION /;
 
-our %EXPORT_TAGS = ( 'all' => [ qw() ] );
-our @EXPORT_OK   = ( @{ $EXPORT_TAGS{'all'} } );
-our @EXPORT      = qw();
+@ISA = qw( Exporter );
 
-our $VERSION = '0.12';
+%EXPORT_TAGS = ( 'all' => [ qw() ] );
+@EXPORT_OK   = ( @{ $EXPORT_TAGS{'all'} } );
+@EXPORT      = qw();
+
+$VERSION = '0.13';
 
 # library includes
 use POE::Session;
@@ -483,5 +485,11 @@ http://people.ee.ethz.ch/~oetiker/webtools/rrdtool/index.html
 
 The RRDTool Manual
 http://people.ee.ethz.ch/~oetiker/webtools/rrdtool/manual/index.html
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (c) 2002 Todd Caine.  All rights reserved. This program is free 
+software; you can redistribute it and/or modify it under the same terms
+as Perl itself.
 
 =cut
