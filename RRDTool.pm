@@ -1,14 +1,15 @@
 package POE::Component::RRDTool;
-# $Id: RRDTool.pm,v 1.23 2003/09/05 22:30:53 tcaine Exp $
+# $Id: RRDTool.pm,v 1.26 2003/09/08 16:31:42 tcaine Exp $
 
 use strict;
 
 use vars qw/ $VERSION $RRDTOOL_VERSION /;
 
-$VERSION = '0.16';
+$VERSION = '0.17';
 $RRDTOOL_VERSION = '__RRDTOOL_VERSION__';
 
 # library includes
+use Carp;
 use POE::Session;
 use POE::Wheel::Run;
 use POE::Driver::SysRW;
@@ -91,13 +92,13 @@ sub rrd_output_handler {
 }
 
 sub rrd_error {
-    print STDERR "\nRRD Error: $_[ARG0]\n";
+    carp( $_[ARG0] );
 }
 
 sub rrd_output {
     my ($kernel, $heap, $output) = @_[KERNEL, HEAP, ARG0];
     my $alias = $heap->{alias};
-    #  figure out what RRDTool sent to STDOUT
+    #  figure out what RRDtool sent to STDOUT
     if ($output =~ /Usage:/) {
         $kernel->post($alias, $heap->{'error_event'}, $output);
     }
@@ -214,6 +215,8 @@ sub new {
         elsif (/^-?statusevent$/i){ $args{status_event}= $param{$_} }
     } 
 
+    croak "couldn't find $args{rrdtool}\n" 
+        unless -e $args{rrdtool};
     
     POE::Session->create
     (   inline_states => { 
@@ -249,7 +252,7 @@ __END__
 
 =head1 NAME
 
-POE::Component::RRDTool - POE interface to Tobias Oetiker's RRDTool
+POE::Component::RRDTool - POE interface to Tobias Oetiker's RRDtool
 
 =head1 SYNOPSIS
 
@@ -276,7 +279,7 @@ POE::Component::RRDTool - POE interface to Tobias Oetiker's RRDTool
   POE::Session->create(
       inline_states => {
           _start => sub {
-               # set a session alias so that we can receive events from RRDTool
+               # set a session alias so that we can receive events from RRDtool
                $_[KERNEL]->alias_set($_[ARG0]);
 
                # create a round robin database
@@ -304,142 +307,115 @@ RRDtool refers to round robin database tool.  Round robin databases have a fixed
 
 =head1 METHODS
 
+=over 4
+
 =item B<new> - creates a POE RRDTool component
 
-new() is the constructor for POE::Component::RRDTool.  The constructor is POE::Component::RRDTool's only public method.  It has two optional named parameters B<alias> and B<rrdtool>.  
+new() is the constructor for L<POE::Component::RRDTool>.  The constructor is L<POE::Component::RRDTool>'s only public method.  It has two optional named parameters B<alias> and B<rrdtool>.  
 
-The B<alias> parameter is the alias of the session that the POE::Component::RRDTool instance will send events to as callbacks.  It defaults to B<component>.  It is important to understand that an RRDTool instance ALWAYS uses the B<rrdtool> alias to reference itself.  Events are posted to the rrdtool alias and callbacks are posted to the alias set via the constructor.
+The B<alias> parameter is the alias of the session that the L<POE::Component::RRDTool> instance will send events to as callbacks.  It defaults to B<component>.  It is important to understand that an RRDTool instance ALWAYS uses the B<rrdtool> alias to reference itself.  Events are posted to the rrdtool alias and callbacks are posted to the alias set via the constructor.
 
-The B<rrdtool> parameter is the name of the RRDTool command line utility.  It defaults to /usr/local/bin/rrdtool.
+The B<rrdtool> parameter is the name of the RRDtool command line utility.  It defaults to /usr/local/bin/rrdtool or the location that was found when building and installing on your system.  You can use the B<rrdtool> parameber to override this default location.
 
 In the calling convention below the C<[]>s indicate optional parameters.
 
-    POE::Component::RRDTool->new(
-        [-alias       => 'controller'],
-        [-rrdtool     => '/usr/local/bin/rrdtool'],
-        [-errorevent  => 'error_handler'],
-        [-statusevent => 'status_handler'],
-    );
+  POE::Component::RRDTool->new(
+      [-alias       => 'controller'],
+      [-rrdtool     => '/usr/local/bin/rrdtool'],
+      [-errorevent  => 'error_handler'],
+      [-statusevent => 'status_handler'],
+  );
+
+=back
 
 =head1 EVENTS
 
-POE::Component::RRDTool events take the same parameters as their rrdtool counterpart.  Use the RRDTool manual as a reference for rrdtool command parameters.  
+L<POE::Component::RRDTool> events take the same parameters as their rrdtool counterpart.  Use the RRDtool manual as a reference for rrdtool command parameters.  
 
 The following events can be posted to an RRDtool component.  
 
-=item B<create> - create a round robin database
-
 =over 4
 
-    my @create_args = qw(
-        test.rrd
-        --start now
-        --step 30
-        DS:X:GAUGE:60:0:10
-        RRA:MAX:0.5:1:1
-    );
-    
-    $_[KERNEL]->post( qw( rrdtool create ), @create_args);
+=item B<create> - create a round robin database
 
-=back
+  my @create_args = qw(
+      test.rrd
+      --start now
+      --step 30
+      DS:X:GAUGE:60:0:10
+      RRA:MAX:0.5:1:1
+  );
+
+  $_[KERNEL]->post( qw( rrdtool create ), @create_args);
 
 =item B<update> - update a round robin database
 
-=over 4
-
-    $_[KERNEL]->post( qw( rrdtool update test.rrd N:1 ) );
-
-=back
+  $_[KERNEL]->post( qw( rrdtool update test.rrd N:1 ) );
 
 =item B<fetch> - fetch data from a RRD
 
-=over 4
+  my $callback = 'rrd_fetch_handler';
 
-    my $callback = 'rrd_fetch_handler';
+  my @fetch_args = qw( 
+      test.rrd 
+      MAX
+      --start -1s
+  );
 
-    my @fetch_args = qw( 
-        test.rrd 
-        MAX
-        --start -1s
-    );
+  $_[KERNEL]->post( qw( rrdtool fetch ), $callback, @fetch_args );
 
-    $_[KERNEL]->post( qw( rrdtool fetch ), $callback, @fetch_args );
-
-=back
- 
 =item B<graph> - generate a graph image from RRDs
 
-=over 4
+  my $callback = 'rrd_graph_handler';
 
-    my $callback = 'rrd_graph_handler';
+  my @graph_args = (
+      'graph.png',
+      '--start', -86400,
+      '--imgformat', 'PNG',
+      'DEF:x=test.rrd:X:MAX',
+      'CDEF:y=1,x,+',
+      'PRINT:y:MAX:%lf',
+      'AREA:x#00FF00:test_data',
+  );
 
-    my @graph_args = (
-        'graph.png',
-        '--start', -86400,
-        '--imgformat', 'PNG',
-        'DEF:x=test.rrd:X:MAX',
-        'CDEF:y=1,x,+',
-        'PRINT:y:MAX:%lf',
-        'AREA:x#00FF00:test_data',
-    );
+  $_[KERNEL]->post( qw( rrdtool udpate ), $callback, @graph_args );
 
-    $_[KERNEL]->post( qw( rrdtool udpate ), $callback, @graph_args );
-
-    sub rrd_graph_handler {
-        my $graph = $_[ARG0];
-
-        printf("Image Size: %dx%d\n", $graph->{xsize}, $graph->{ysize});
-
-        printf("PRINT output: %s\n", join('\n', @$graph->{output}) if @$graph;
-
-        print "graph.png was created" if -e "graph.png";
-        warn "no image was created" unless -e "graph.png";
-    }
-
-=back
+  sub rrd_graph_handler {
+      my $graph = $_[ARG0];
+      printf("Image Size: %dx%d\n", $graph->{xsize}, $graph->{ysize});
+      printf("PRINT output: %s\n", join('\n', @$graph->{output}) if @$graph;
+      print "graph.png was created" if -e "graph.png";
+      warn "no image was created" unless -e "graph.png";
+  }
 
 =item B<info> - get information about a RRD
 
-=over 4
+  my $callback = 'rrd_info_handler';
 
-    my $callback = 'rrd_info_handler';
-
-    $_[KERNEL]->post( qw( rrdtool info ), $callback, 'test.rrd' );
-
-=back
+  $_[KERNEL]->post( qw( rrdtool info ), $callback, 'test.rrd' );
 
 =item B<xport> - generate xml reports from RRDs
 
-=over 4
+  my $callback = 'rrd_xport_handler';
 
-    my $callback = 'rrd_xport_handler';
+  my @xport_args = (
+    '--start', -300,
+    '--step', 300,
+    'DEF:x=test.rrd:X:MAX',
+    'XPORT:x:foobar',
+  );
 
-    my @xport_args = (
-      '--start', -300,
-      '--step', 300,
-      'DEF:x=test.rrd:X:MAX',
-      'XPORT:x:foobar',
-    );
-
-    $_[KERNEL]->post( qw( rrdtool xport ), $callback, @xport_args );
-
-=back
+  $_[KERNEL]->post( qw( rrdtool xport ), $callback, @xport_args );
 
 =item B<dump> - dump a RRD in XML format
 
-=over 4
+  my $callback = 'rrd_dump_handler';
 
-    my $callback = 'rrd_dump_handler';
-
-    $_[KERNEL]->post( qw( rrdtool dump ), $callback, 'test.rrd' );
-
-=back
+  $_[KERNEL]->post( qw( rrdtool dump ), $callback, 'test.rrd' );
 
 =item B<stop> - stop an RRDTool component
 
-=over 4
-
-    $_[KERNEL]->post( qw( rrdtool stop ) );
+  $_[KERNEL]->post( qw( rrdtool stop ) );
 
 =back
 
@@ -447,46 +423,50 @@ The following events can be posted to an RRDtool component.
 
 The callbacks listed below are sent by the RRDTool component to the session alias passed to it's constructor.  You can provide event handlers for them in the controlling session's constructor.  However it is not required to handle any of the callbacks.
 
+=over 4 
+
 =item B<rrd_status> - notification of rrdtool runtimes
 
 Returns the user, system, and real time of the rrdtool process in ARG0, ARG1, and ARG2 respectively.  This event name can be overriden by using the StatusEvent parameter to POE::Component::RRDTool->new();
 
-    POE::Session->create(
-        inline_states => {
-            'rrd_status' => sub {
-                my ($user, $system, $real) = @_[ARG0 .. ARG2];
-                print "u: $user\ts: $system\tr: $real\n";
-            },
-            ....,
-        }
-    );
+  POE::Session->create(
+    inline_states => {
+      'rrd_status' => sub {
+        my ($user, $system, $real) = @_[ARG0 .. ARG2];
+        print "u: $user\ts: $system\tr: $real\n";
+      },
+      ....,
+    }
+  );
 
 =item B<rrd_error> - rrdtool error notification
 
 Returns error messages returned from rrdtool in ARG0.
 
-    POE::Session->create(
-        inline_states => {
-            'rrd_error' => sub {
-                my $error = $_[ARG0];
-                print "Error: $error\n";
-            },
-            ....,
-        }
-    );
+  POE::Session->create(
+    inline_states => {
+      'rrd_error' => sub {
+        my $error = $_[ARG0];
+        print "Error: $error\n";
+      },
+      ....,
+    }
+  );
 
 =item B<rrd_stopped> - rrdtool process stopped
 
 This callback provides a hook to do something when the rrdtool process is stopped.
 
-    POE::Session->create(
-        inline_states => {
-            'rrd_stopped' => sub {
-                print "rrdtool stopped\n";
-            },
-            ....,
-        }
-    );
+  POE::Session->create(
+    inline_states => {
+      'rrd_stopped' => sub {
+        print "rrdtool stopped\n";
+      },
+      ....,
+    }
+  );
+
+=back
 
 =head1 AUTHOR
 
@@ -494,13 +474,13 @@ Todd Caine  <todd@pobox.com>
 
 =head1 SEE ALSO
 
-An RRDTool Tutorial
+An RRDtool Tutorial
 http://people.ee.ethz.ch/~oetiker/webtools/rrdtool/tutorial/rrdtutorial.html
 
-The Main RRDTool Website
+The Main RRDtool Website
 http://people.ee.ethz.ch/~oetiker/webtools/rrdtool/index.html
 
-The RRDTool Manual
+The RRDtool Manual
 http://people.ee.ethz.ch/~oetiker/webtools/rrdtool/manual/index.html
 
 =head1 TROUBLESHOOTING
@@ -515,7 +495,7 @@ If you notice that more than one event is being generated from a single rrdtool 
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2002 Todd Caine.  All rights reserved. This program is free 
+Copyright (c) 2003 Todd Caine.  All rights reserved. This program is free 
 software; you can redistribute it and/or modify it under the same terms
 as Perl itself.
 

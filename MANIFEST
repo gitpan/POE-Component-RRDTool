@@ -13,3 +13,5 @@ t/06_rrd_info.t
 t/07_rrd_xport.t
 t/08_rrd_dump.t
 t/09_rrd_error.t
+t/10_pod_check.t
+META.yml
