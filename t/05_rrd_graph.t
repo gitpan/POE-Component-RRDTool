@@ -1,4 +1,3 @@
-#!/usr/local/bin/perl -w
 
 use strict;
 
@@ -9,7 +8,7 @@ use POE;
 use lib qw(../blib/arch ../blib/lib);
 use POE::Component::RRDTool;
 
-use Test::More tests => 1;
+use Test::More tests => 6;
 
 #----------------------#
 #  Test 5: RRD graph   #
@@ -22,6 +21,8 @@ my @graph_args = (
     '--start', -86400,
     '--imgformat', 'PNG',
     'DEF:x=test.rrd:X:MAX',
+    'CDEF:y=1,x,+',
+    'PRINT:y:MAX:%lf',
     'AREA:x#00FF00:test_data',
 );
 
@@ -42,13 +43,20 @@ POE::Session->create(
             unlink('test.png') if -e 'test.png';
         },
         'get_value' => sub {
-            my $output = $_[ARG0];
-            $ok = 1 if $$output;
+            my $graph = $_[ARG0];
+            $ok = 1 if %$graph;
+
+            ok($graph->{xsize}, 'X size was found');
+            ok($graph->{ysize}, 'Y size was found');
+
+            isa_ok($graph->{output}, 'ARRAY');
+            is($graph->{output}->[0], 'NaN');
+            ok($graph->{image}, 'image exists');
 
             # write image to disk
             open(IMG, "> test.png") or die "can't write test.png: $!\n";
             binmode(IMG);
-            print IMG $$output;
+            print IMG $graph->{image};
             close(IMG);
         },
         'rrd_error' => sub { 

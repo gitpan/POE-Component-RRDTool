@@ -1,5 +1,5 @@
 package POE::Component::RRDTool;
-# $Id: RRDTool.pm,v 1.12 2002/07/01 16:35:21 tcaine Exp $
+# $Id: RRDTool.pm,v 1.14 2002/07/29 21:08:03 tcaine Exp $
 
 use strict;
 
@@ -13,7 +13,7 @@ use vars qw/ @ISA %EXPORT_TAGS @EXPORT_OK @EXPORT $VERSION /;
 @EXPORT_OK   = ( @{ $EXPORT_TAGS{'all'} } );
 @EXPORT      = qw();
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 # library includes
 use POE::Session;
@@ -24,12 +24,14 @@ use POE::Filter::Stream;
 
 use Data::Dumper;
 use File::Basename qw( dirname );
-use File::Path qw( mkpath );
 use POSIX qw( :sys_wait_h );
 
 sub IDLE () { 0 };
 sub BUSY () { 1 };
 
+#  this is the block size for POE::Driver::SysRW.  It needs to be large because the 
+#  output needs to generate only one event for all different RRD commands.
+#@@@@ Can this be replaced by using a custom filter for each request type?
 my $block_size = 4096;
 
 sub start_rrdtool {
@@ -103,15 +105,15 @@ sub rrd_output {
     my $alias = $heap->{alias};
     #  figure out what RRDTool sent to STDOUT
     if ($output =~ /Usage:/) {
-        $kernel->post($alias, 'rrd_error', "Usage: command command_options");
+        $kernel->post($alias, 'rrd_error', $output);
     }
     elsif ($output =~ /ERROR:\s(.*)/) {
         $kernel->post($alias, 'rrd_error', $1);
     }
     else {
-        my $data = $output;
-        $data =~ s/OK .*$//ms;
-        if($data) {
+        my $output = $output;
+        $output =~ s/OK .*$//ms;
+        if($output) {
             #  parse the data section and post a data structure to represent the output
 
             #  $response contains a reference to the data structure that will be used as an 
@@ -123,7 +125,7 @@ sub rrd_output {
             #  so that we can tell which RRD command output that needs to be parsed
             my $command_output = pop @{$heap->{cmd_state}};
             if($command_output eq 'fetch') {
-                my @data = split(/\n/, $data); 
+                my @data = split(/\n/, $output); 
                 my $header = shift @data;      # the header contains the RRD data source names
                 shift @data;                   # remove blank line after the header
 
@@ -148,12 +150,33 @@ sub rrd_output {
                 $response = \%fetch_results;
             }
             elsif($command_output eq 'graph') {
-                #@@@  still need to figure out how to handle RRDTool graph's PRINT output
-                $response = \$data;
+                my @GRAPH_output = ();
+                my @output = split/\n/, $output;
+
+                #  get rrdtool graph's GRAPH output if any
+                foreach (reverse @output) {
+                    if (/^(?:NaN|[-+.\d])$/) {
+                        push @GRAPH_output, $_;
+                    }
+                    else {
+                        last;
+                    }
+                }
+
+                #  get the image size
+                my ($x,$y) = $output =~ m/(\d{2,3})x(\d{2,3})/;
+
+                my %graph_results = (
+                    xsize  => $x,
+                    ysize  => $y,
+                    image  => join('', @output[ 0 .. ($#output - @GRAPH_output) ]),
+                    output => [ @GRAPH_output ],
+                );
+                $response = \%graph_results;
             }
             elsif($command_output eq 'info') {
                 my %info_results;
-                foreach my $line (split(/\n/, $data)) {
+                foreach my $line (split(/\n/, $output)) {
                     my ($attribute, $value) = split(/\s=\s/, $line);
                     $value =~ s/"//g;
                     $info_results{$attribute} = $value;
@@ -161,10 +184,10 @@ sub rrd_output {
                 $response = \%info_results;
             }
             elsif($command_output eq 'xport') {
-                $response = \$data;
+                $response = \$output;
             }
             elsif($command_output eq 'dump') {
-                $response = \$data;
+                $response = \$output;
             }
 
             my $callback = (scalar @{$heap->{callbacks}}) 
@@ -301,9 +324,7 @@ RRDTool events take the same parameters as their rrdtool counterpart.  Use the R
 
 The following events can be posted to an RRDtool component.  
 
-=item B<create> 
-
-  create a round robin database
+=item B<create> - create a round robin database
 
 =over 4
 
@@ -319,9 +340,7 @@ The following events can be posted to an RRDtool component.
 
 =back
 
-=item B<update> 
-
-  update a round robin database
+=item B<update> - update a round robin database
 
 =over 4
 
@@ -329,9 +348,7 @@ The following events can be posted to an RRDtool component.
 
 =back
 
-=item B<fetch> 
-
-  fetch data from a RRD
+=item B<fetch> - fetch data from a RRD
 
 =over 4
 
@@ -347,9 +364,7 @@ The following events can be posted to an RRDtool component.
 
 =back
  
-=item B<graph> 
-
-  generate a graph image from RRDs
+=item B<graph> - generate a graph image from RRDs
 
 =over 4
 
@@ -360,16 +375,30 @@ The following events can be posted to an RRDtool component.
         '--start', -86400,
         '--imgformat', 'PNG',
         'DEF:x=test.rrd:X:MAX',
+        'CDEF:y=1,x,+',
+        'PRINT:y:MAX:%lf',
         'AREA:x#00FF00:test_data',
     );
 
     $_[KERNEL]->post( qw( rrdtool udpate ), $callback, @graph_args );
 
+    sub rrd_graph_handler {
+        my $graph = $_[ARG0];
+
+        printf("Image Size: %dx%d\n", $graph->{xsize}, $graph->{ysize});
+
+        printf("PRINT output: %s\n", join('\n', @$graph->{output}) if @$graph;
+
+        print "creating image example.png\n";
+        open IMAGE, "> example.png" or die $!;
+        binmode(1);
+        print IMAGE $graph->{image};
+        close IMAGE;
+    }
+
 =back
 
-=item B<info> 
-
-  get information about a RRD
+=item B<info> - get information about a RRD
 
 =over 4
 
@@ -379,9 +408,7 @@ The following events can be posted to an RRDtool component.
 
 =back
 
-=item B<xport> 
-
-  generate xml reports from RRDs
+=item B<xport> - generate xml reports from RRDs
 
 =over 4
 
@@ -398,9 +425,7 @@ The following events can be posted to an RRDtool component.
 
 =back
 
-=item B<dump> 
-
-  dump a RRD in XML format
+=item B<dump> - dump a RRD in XML format
 
 =over 4
 
@@ -410,9 +435,7 @@ The following events can be posted to an RRDtool component.
 
 =back
 
-=item B<stop> 
-
-  stop an RRDTool component
+=item B<stop> - stop an RRDTool component
 
 =over 4
 
@@ -468,12 +491,6 @@ This callback provides a hook to do something when the rrdtool process is stoppe
 =head1 AUTHOR
 
 Todd Caine  <todd@pobox.com>
-
-=head1 BUGS
-
-The graph event doesn't support rrdtool's print method.
-
-There's probably more so send me an email and let me know how it worked or didn't work for you.  I'd be interested to hear what kind of programs this component gets used in.
 
 =head1 SEE ALSO
 

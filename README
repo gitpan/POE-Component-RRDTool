@@ -1,9 +1,7 @@
 NAME
-
     PoCo::RRDTool - POE interface to Tobias Oetiker's RRDTool
 
 SYNOPSIS
-
       use POE qw( Component::RRDTool );
 
       my $alias = 'controller';
@@ -44,7 +42,6 @@ SYNOPSIS
       $poe_kernel->run();
 
 DESCRIPTION
-
     RRDtool refers to round robin database tool. Round robin databases have
     a fixed number of data points in them and contain a pointer to the
     current element. Since the databases have a fixed number of data points
@@ -56,7 +53,6 @@ DESCRIPTION
     around the rrdtool command line interface.
 
 METHODS
-
     new - creates a POE RRDTool component
     new() is the constructor for POE::Component::RRDTool. The constructor is
     PoCo::RRDTool's only public method. It has two optional named parameters
@@ -79,15 +75,12 @@ METHODS
         );
 
 EVENTS
-
     RRDTool events take the same parameters as their rrdtool counterpart.
     Use the RRDTool manual as a reference for rrdtool command parameters.
 
     The following events can be posted to an RRDtool component.
 
-    create
-      create a round robin database
-
+    create - create a round robin database
             my @create_args = qw(
                 test.rrd
                 --start now
@@ -98,14 +91,10 @@ EVENTS
     
             $_[KERNEL]->post( qw( rrdtool create ), @create_args);
 
-    update
-      update a round robin database
-
+    update - update a round robin database
             $_[KERNEL]->post( qw( rrdtool update test.rrd N:1 ) );
 
-    fetch
-      fetch data from a RRD
-
+    fetch - fetch data from a RRD
             my $callback = 'rrd_fetch_handler';
 
             my @fetch_args = qw( 
@@ -116,9 +105,7 @@ EVENTS
 
             $_[KERNEL]->post( qw( rrdtool fetch ), $callback, @fetch_args );
 
-    graph
-      generate a graph image from RRDs
-
+    graph - generate a graph image from RRDs
             my $callback = 'rrd_graph_handler';
 
             my @graph_args = (
@@ -126,21 +113,33 @@ EVENTS
                 '--start', -86400,
                 '--imgformat', 'PNG',
                 'DEF:x=test.rrd:X:MAX',
+                'CDEF:y=1,x,+',
+                'PRINT:y:MAX:%lf',
                 'AREA:x#00FF00:test_data',
             );
 
             $_[KERNEL]->post( qw( rrdtool udpate ), $callback, @graph_args );
 
-    info
-      get information about a RRD
+            sub rrd_graph_handler {
+                my $graph = $_[ARG0];
 
+                printf("Image Size: %dx%d\n", $graph->{xsize}, $graph->{ysize});
+
+                printf("PRINT output: %s\n", join('\n', @$graph->{output}) if @$graph;
+
+                print "creating image example.png\n";
+                open IMAGE, "> example.png" or die $!;
+                binmode(1);
+                print IMAGE $graph->{image};
+                close IMAGE;
+            }
+
+    info - get information about a RRD
             my $callback = 'rrd_info_handler';
 
             $_[KERNEL]->post( qw( rrdtool info ), $callback, 'test.rrd' );
 
-    xport
-      generate xml reports from RRDs
-
+    xport - generate xml reports from RRDs
             my $callback = 'rrd_xport_handler';
 
             my @xport_args = (
@@ -152,20 +151,15 @@ EVENTS
 
             $_[KERNEL]->post( qw( rrdtool xport ), $callback, @xport_args );
 
-    dump
-      dump a RRD in XML format
-
+    dump - dump a RRD in XML format
             my $callback = 'rrd_dump_handler';
 
             $_[KERNEL]->post( qw( rrdtool dump ), $callback, 'test.rrd' );
 
-    stop
-      stop an RRDTool component
-
+    stop - stop an RRDTool component
             $_[KERNEL]->post( qw( rrdtool stop ) );
 
 CALLBACKS
-
     The callbacks listed below are sent by the RRDTool component to the
     session alias passed to it's constructor. You can provide event handlers
     for them in the controlling session's constructor. However it is not
@@ -212,29 +206,21 @@ CALLBACKS
         );
 
 AUTHOR
-
     Todd Caine <todd@pobox.com>
 
-BUGS
-
-    The graph event doesn't support rrdtool's print method.
-
-    There's probably more so send me an email and let me know how it worked
-    or didn't work for you. I'd be interested to hear what kind of programs
-    this component gets used in.
-
 SEE ALSO
-
     An RRDTool Tutorial
-
     http://people.ee.ethz.ch/~oetiker/webtools/rrdtool/tutorial/rrdtutorial.
     html
 
     The Main RRDTool Website
-
     http://people.ee.ethz.ch/~oetiker/webtools/rrdtool/index.html
 
     The RRDTool Manual
-
     http://people.ee.ethz.ch/~oetiker/webtools/rrdtool/manual/index.html
+
+COPYRIGHT AND LICENSE
+    Copyright (c) 2002 Todd Caine. All rights reserved. This program is free
+    software; you can redistribute it and/or modify it under the same terms
+    as Perl itself.
 

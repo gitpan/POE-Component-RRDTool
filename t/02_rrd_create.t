@@ -1,5 +1,3 @@
-#!/usr/local/bin/perl -w
-
 use strict;
 
 sub POE::Kernel::ASSERT_ALL () { 1 }

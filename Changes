@@ -14,3 +14,10 @@ Revision history for Perl extension PoCo-RRDTool.
 
 0.13  Wed Jul 24 08:46:36 2002
         - removed the use of our() to make things work with older perls
+        - fixed Makefile.PL to make it support RPM building
+        - added license and copyright
+
+0.14  Mon Jul 29 00:16:57 2002
+	- added better error reporting
+	- added support for rrdtool graph's PRINT function
+	- graph now returns a hash reference instead of a scalar reference
