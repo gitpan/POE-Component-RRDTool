@@ -5,7 +5,7 @@ use strict;
 
 use vars qw/ $VERSION $RRDTOOL_VERSION /;
 
-$VERSION = '0.17';
+$VERSION = '0.18';
 $RRDTOOL_VERSION = '__RRDTOOL_VERSION__';
 
 # library includes

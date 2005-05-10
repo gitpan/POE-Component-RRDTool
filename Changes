@@ -1,5 +1,8 @@
 Revision history for Perl extension POE::Component::RRDTool.
 
+0.18  Tue May 10 15:22:50 2005
+        - no changes, just moving this back to the CPAN 
+
 0.17  Mon Sep  8 09:15:46 2003
 	- added t/10_pod_check.t test case
 	- fixed POD syntax errors
